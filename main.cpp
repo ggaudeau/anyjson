@@ -11,9 +11,9 @@ int main(int argc, char* argv[])
 	std::fstream ifs(argv[1]);
 
 	if (ifs) {
-	  std::any out;
+	  std::any data;
 
-	  int retcode = json::parse(ifs, out);
+	  int retcode = json::parse(ifs, data);
 
 	  assert(retcode == 0);
 
@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 	  //  - T to<T>(any)
 	  //  - T value<T>(any of object, key)
 
-	  json::stringify(out, std::cout);
+	  json::stringify(data, std::cout);
 
 	  assert(retcode == 0);
 	}
