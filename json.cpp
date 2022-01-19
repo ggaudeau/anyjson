@@ -152,7 +152,7 @@ static void parse_array(std::istream& is, std::vector<std::any>& arr)
 	  is >> std::ws;
 	  parse_value(is, value);
 	  is >> std::ws;
-	  arr.push_back(value);
+	  arr.emplace_back(std::move(value));
 
 	  c = is.peek();
 
@@ -208,11 +208,15 @@ static void parse_object(std::istream& is, std::map<std::string, std::any>& obj)
 
 	  // VALUE
 
-	  std::any value;
-	  is >> std::ws;
-	  parse_value(is, value);
-	  is >> std::ws;
-	  obj[key] = value;
+	  {
+		std::any value;
+
+		is >> std::ws;
+		parse_value(is, value);
+		is >> std::ws;
+
+		obj.emplace(key, std::move(value));
+	  }
 
 	  c = static_cast<char>( is.peek() );
 
