@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <cassert>
+#include <chrono>
+#include <sstream>
 
 #include "json.hpp"
 
@@ -11,9 +13,14 @@ int main(int argc, char* argv[])
 	std::fstream ifs(argv[1]);
 
 	if (ifs) {
-	  std::any data;
+	  auto start = std::chrono::steady_clock::now();
 
-	  int retcode = json::parse(ifs, data);
+	  std::any data;
+	  int retcode = json::parseValue(ifs, data);
+
+	  auto end = std::chrono::steady_clock::now();
+	  std::chrono::duration<double> elapsed_seconds = end-start;
+	  std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
 
 	  assert(retcode == 0);
 
@@ -22,9 +29,19 @@ int main(int argc, char* argv[])
 	  //  - T to<T>(any)
 	  //  - T value<T>(any of object, key)
 
-	  json::stringify(data, std::cout);
+	  start = std::chrono::steady_clock::now();
+
+	  std::stringstream oss;
+
+	  json::stringifyValue(data, oss);
+
+	  end = std::chrono::steady_clock::now();
+	  elapsed_seconds = end-start;
+	  std::cout << "elapsed time: " << elapsed_seconds.count() << "s\n";
 
 	  assert(retcode == 0);
+
+	  return retcode;
 	}
 
   } else {
