@@ -40,14 +40,18 @@ namespace {
 	//println("ok");
   }
 
-  void parse(std::istream& is, anyjson::String& str) {
+  anyjson::String parseString(std::istream& is) {
+	anyjson::String str;
+	
 	print("parsing string ... ");
 	is >> std::quoted(str);
 	println(str);
+	return str;
   }
 
-  void recParse(std::istream&, anyjson::Value&);
-  void parse(std::istream& is, anyjson::Object& obj) {
+  anyjson::Value parseValue(std::istream&);
+  anyjson::Object parseObject(std::istream& is) {
+	anyjson::Object obj;
 	bool bContinue;
 
 	println("parse object");
@@ -59,9 +63,8 @@ namespace {
 
 	  bContinue = false;
 	  if (ch == '"') {
-		anyjson::String key;
-
-		parse(is, key);
+		anyjson::String&& key = parseString(is);
+		
 		if (obj.find(key) != obj.cend()) {
 		  std::ostringstream oss;
 		  oss << "duplicate object key [" << key << "]";
@@ -72,13 +75,9 @@ namespace {
 		consumeChar(is, ':');
 
 		{
-		  anyjson::Value val;
-
 		  consumeWhitespaces(is);
-		  recParse(is, val);
+		  obj.emplace(key, parseValue(is));
 		  consumeWhitespaces(is);
-
-		  obj.emplace(key, std::move(val));
 		}
 
 		ch = static_cast<char>(is.peek());
@@ -113,13 +112,15 @@ namespace {
 	consumeChar(is, '}');
 
 	println("object parsed");
+	return obj;
   }
 
-  void parse(std::istream& is, anyjson::Array& arr) {
+  anyjson::Array parseArray(std::istream& is) {
 	println("parse array");
 
+	anyjson::Array arr;
 	bool bContinue;
-	char ch;
+	char ch;	
 
 	consumeChar(is, '[');
 
@@ -129,13 +130,9 @@ namespace {
 		bContinue = false;
 
 		{
-		  anyjson::Value val;
-
+		  consumeWhitespaces(is);		  
+		  arr.emplace_back( parseValue(is) );
 		  consumeWhitespaces(is);
-		  recParse(is, val);
-		  consumeWhitespaces(is);
-
-		  arr.emplace_back(std::move(val));
 		}
 
 		ch = is.peek();
@@ -162,35 +159,29 @@ namespace {
 	consumeChar(is, ']');
 
 	println("array parsed");
+	return arr;
   }
 
-  void parse(std::istream& is, anyjson::Number& num) {
+  anyjson::Number parseNumber(std::istream& is) {
+	anyjson::Number num;
 	print("parsing double ... ");
 	is >> num;
 	println(num);
+	return num;
   }
 
-  void recParse(std::istream& is, anyjson::Value& val) {
+  anyjson::Value parseValue(std::istream& is) {
 	int ch = is.peek();
 
 	switch ( static_cast<char>(ch) ) {
 	case '"': {
-	  anyjson::String str;
-	  parse(is, str);
-	  val = std::move(str);
-	  break;
+	  return std::make_any<anyjson::String>( parseString(is) );
 	}
 	case '{': {
-	  anyjson::Object obj;
-	  parse(is, obj);
-	  val = std::move(obj);
-	  break;
+	  return std::make_any<anyjson::Object>( parseObject(is) );
 	}
 	case '[': {
-	  anyjson::Array arr;
-	  parse(is, arr);
-	  val = std::move(arr);
-	  break;
+	  return std::make_any<anyjson::Array>( parseArray(is) );
 	}
 	case 't': {
 
@@ -201,14 +192,14 @@ namespace {
 	  std::getline(is, str, 'e');
 	  if (str == "tru") {
 		println("ok");
-		val = true;
+		return std::make_any<anyjson::Boolean>( true );
+		
 	  } else {
 		println("ko");
 		std::ostringstream oss;
 		oss << "expect true have [" << str << "]";
 		throw std::runtime_error(oss.str());
 	  }
-	  break;
 	}
 	case 'f': {
 
@@ -219,14 +210,14 @@ namespace {
 	  std::getline(is, str, 'e');
 	  if (str == "fals") {
 		println("ok");
-		val = false;
+		return std::make_any<anyjson::Boolean>( false );
+		
 	  } else {
 		println("ko");
 		std::ostringstream oss;
 		oss << "expect false have [" << str << "]";
 		throw std::runtime_error(oss.str());
 	  }
-	  break;
 	}
 	case 'n': {
 
@@ -240,30 +231,27 @@ namespace {
 	  is.read(buffer, size - 1);
 	  if (strcmp(buffer, "null") == 0) {
 		println("ok");
-		val = nullptr;
+		return std::make_any<anyjson::Null>();
+		
 	  } else {
 		println("ko");
 		std::ostringstream oss;
 		oss << "expect null have [" << buffer << "]";
 		throw std::runtime_error(oss.str());
 	  }
-	  break;
 	}
 	default: {
 
 	  // NUMBER
 
 	  if (isdigit(ch) || static_cast<char>(ch) == '-') {
-		anyjson::Number num; // may use std::variant<int, long, float, double> instead
-		parse(is, num);
-		val = num;
+		return std::make_any<anyjson::Number>( parseNumber(is) );
 
 	  } else {
 		std::ostringstream oss;
 		oss << "unexpected character [" << ch << "] in value";
 		throw std::runtime_error(oss.str());
 	  }
-	  break;
 	}
 
 	}
@@ -273,9 +261,8 @@ namespace {
 
 namespace anyjson {
   
-  bool parse(std::istream& is, Value& val)
+  Value parse(std::istream& is)
   {
-	bool res = true;
 	std::ios_base::fmtflags flags = is.flags();
 	std::ios::iostate state = is.exceptions();
 
@@ -285,23 +272,23 @@ namespace anyjson {
 	is.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
 
 	try {
-	  recParse(is, val);
-
+	  // TODO: arm sth to reset stream states	  
+	  return parseValue(is);
+	  
 	} catch (const std::istream::failure& err) {
 	  std::cerr << err.what()
 				<< ", eof=" << ((is.eof()) ? 1 : 0)
 				<< ", fail=" << ((is.fail()) ? 1 : 0)
 				<< ", bad=" << ((is.bad()) ? 1 : 0)
 				<< std::endl;
-	  res = false;
 	} catch (const std::exception& err) {
 	  std::cerr << err.what() << std::endl;
-	  res = false;
 	}
 
 	is.exceptions(state);
 	is.flags(flags);
-	return res;
+	
+	return {};
   }
 
 } // namespace anyjson

@@ -25,7 +25,7 @@ namespace anyjson {
    *
    *
    */
-  bool parse(std::istream& is, Value& val);
+  anyjson::Value parse(std::istream& is);
 
   /**
    *

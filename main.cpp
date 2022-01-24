@@ -36,26 +36,31 @@ int test_input_file(const char* filePath) {
   int retcode = 0;
   std::fstream ifs(filePath);
 
+  Chrono* chrono = nullptr;
+  
   if (ifs) {
-	std::any data;
-	{
 #if defined(WITH_CHRONO)
-	  Chrono chrono("parsing");
+	chrono = new Chrono("parsing");
 #endif	  
-	  retcode = (anyjson::parse(ifs, data)) ? 0 : 1;
-	}
+	anyjson::Value&& data = anyjson::parse(ifs);
 
-	if (retcode == 0) {
-	  std::stringstream oss;
-	  {
 #if defined(WITH_CHRONO)
-		Chrono chrono("stringifying");
-#endif		
-		retcode += (anyjson::stringify(data, oss)) ? 0 : 1;
+	delete chrono;
+#endif
 
-		if (retcode == 0) {
-		  std::cout << oss.str() << std::endl;
-		}
+	if (data.has_value()) {
+	  std::stringstream oss;
+#if defined(WITH_CHRONO)
+	  chrono = new Chrono("stringifying");
+#endif		
+	  retcode += (anyjson::stringify(data, oss)) ? 0 : 1;
+
+#if defined(WITH_CHRONO)
+	  delete chrono;
+#endif
+	  
+	  if (retcode == 0) {
+		//std::cout << oss.str() << std::endl;
 	  }
 	}
 	
@@ -69,9 +74,10 @@ int test_input_file(const char* filePath) {
 int test_simple_json() {
   int retcode = 0;
   std::stringstream iss("{ \"item\": { \"value\": 0 } }");
-  std::any data;
 
-  if (anyjson::parse(iss, data)) {
+  anyjson::Value&& data = anyjson::parse(iss);
+  
+  if (data.has_value()) {
 
 	try {
 	  anyjson::Object& root = to<anyjson::Object&>(data);

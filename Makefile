@@ -8,10 +8,10 @@ CXXFLAGS := -Wall -Wextra -pedantic -std=c++17
 
 all: release
 
-release: CXXFLAGS += -O2 -DNDEBUG
+release: CXXFLAGS += -O2 -DNDEBUG -DWITH_CHRONO
 release: $(TARGET)
 
-debug: CXXFLAGS += -g -DWITH_CHRONO
+debug: CXXFLAGS += -g
 debug: $(TARGET)
 
 $(TARGET): $(OBJS)
