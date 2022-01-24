@@ -14,7 +14,7 @@ namespace anyjson {
   using Boolean = bool;
   using Null    = std::nullptr_t;
 
-  bool parse(std::istream&, Value&);
+  Value parse(std::istream&);
   bool stringify(const Value&, std::ostream&);
 }
 ~~~~~~~~~~
