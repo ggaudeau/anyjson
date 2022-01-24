@@ -259,6 +259,7 @@ namespace {
 
 } // anonymous namespace
 
+
 namespace anyjson {
   
   Value parse(std::istream& is)
@@ -272,8 +273,11 @@ namespace anyjson {
 	is.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
 
 	try {
-	  // TODO: arm sth to reset stream states	  
-	  return parseValue(is);
+	  Value&& val = parseValue(is);
+	  
+	  is.exceptions(state);
+	  is.flags(flags);
+	  return std::move(val);
 	  
 	} catch (const std::istream::failure& err) {
 	  std::cerr << err.what()
