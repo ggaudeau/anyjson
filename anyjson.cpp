@@ -1,3 +1,7 @@
+// Copyright 2022 Gerard Gaudeau
+// Distributed under MIT license
+// See file LICENSE for detail at https://github.com/ggaudeau/anyjson/blob/main/LICENSE
+
 #include "anyjson.hpp"
 
 #include <string.h>		// memset
