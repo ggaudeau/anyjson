@@ -1,47 +1,22 @@
-
-#include "json.hpp"
+#include "anyjson.hpp"
 
 #include <string.h>		// memset
 #include <ctype.h>		// isdigit
 
 #include <iomanip>		// quoted c++14
 #include <sstream>
+#include <stdexcept>
 
 #include <typeindex>
 #include <functional>
 #include <unordered_map>
 
-void print() {
-}
-
-#if defined(NDEBUG)
-void println() {
-}
-template<typename Elm, typename ...Args>
-void print(Elm&&, Args&& ...) {
-}
-template<typename Elm, typename ...Args>
-void println(Elm&&, Args&& ...) {
-}
-#else
-void println() {
-  std::cout << std::endl;
-}
-template<typename Elm, typename ...Args>
-void print(Elm&& elm, Args&& ...args) {
-  std::cout << std::forward<Elm>(elm);
-  print(std::forward<Args>(args)...);
-}
-template<typename Elm, typename ...Args>
-void println(Elm&& elm, Args&& ...args) {
-  std::cout << std::forward<Elm>(elm);
-  println(std::forward<Args>(args)...);
-}
-#endif
+#include "anyjson_debug.hpp"
 
 /// PARSING PART
 
 namespace {
+  
   void consumeChar(std::istream& is, char expected) {
 	char ch;
 
@@ -61,14 +36,14 @@ namespace {
 	//println("ok");
   }
 
-  void parse(std::istream& is, std::string& str) {
+  void parse(std::istream& is, anyjson::String& str) {
 	print("parsing string ... ");
 	is >> std::quoted(str);
 	println(str);
   }
 
-  void parse(std::istream&, json::Value&);
-  void parse(std::istream& is, json::Object& obj) {
+  void recParse(std::istream&, anyjson::Value&);
+  void parse(std::istream& is, anyjson::Object& obj) {
 	bool bContinue;
 
 	println("parse object");
@@ -80,7 +55,7 @@ namespace {
 
 	  bContinue = false;
 	  if (ch == '"') {
-		std::string key;
+		anyjson::String key;
 
 		parse(is, key);
 		if (obj.find(key) != obj.cend()) {
@@ -93,10 +68,10 @@ namespace {
 		consumeChar(is, ':');
 
 		{
-		  json::Value val;
+		  anyjson::Value val;
 
 		  consumeWhitespaces(is);
-		  parse(is, val);
+		  recParse(is, val);
 		  consumeWhitespaces(is);
 
 		  obj.emplace(key, std::move(val));
@@ -136,7 +111,7 @@ namespace {
 	println("object parsed");
   }
 
-  void parse(std::istream& is, json::Array& arr) {
+  void parse(std::istream& is, anyjson::Array& arr) {
 	println("parse array");
 
 	bool bContinue;
@@ -150,10 +125,10 @@ namespace {
 		bContinue = false;
 
 		{
-		  json::Value val;
+		  anyjson::Value val;
 
 		  consumeWhitespaces(is);
-		  parse(is, val);
+		  recParse(is, val);
 		  consumeWhitespaces(is);
 
 		  arr.emplace_back(std::move(val));
@@ -185,30 +160,30 @@ namespace {
 	println("array parsed");
   }
 
-  void parse(std::istream& is, double& num) {
+  void parse(std::istream& is, anyjson::Number& num) {
 	print("parsing double ... ");
 	is >> num;
 	println(num);
   }
 
-  void parse(std::istream& is, json::Value& val) {
+  void recParse(std::istream& is, anyjson::Value& val) {
 	int ch = is.peek();
 
 	switch ( static_cast<char>(ch) ) {
 	case '"': {
-	  std::string str;
+	  anyjson::String str;
 	  parse(is, str);
 	  val = std::move(str);
 	  break;
 	}
 	case '{': {
-	  json::Object obj;
+	  anyjson::Object obj;
 	  parse(is, obj);
 	  val = std::move(obj);
 	  break;
 	}
 	case '[': {
-	  json::Array arr;
+	  anyjson::Array arr;
 	  parse(is, arr);
 	  val = std::move(arr);
 	  break;
@@ -275,7 +250,7 @@ namespace {
 	  // NUMBER
 
 	  if (isdigit(ch) || static_cast<char>(ch) == '-') {
-		double num;
+		anyjson::Number num; // may use std::variant<int, long, float, double> instead
 		parse(is, num);
 		val = num;
 
@@ -290,24 +265,23 @@ namespace {
 	}
   }
 
-}
+} // anonymous namespace
 
-namespace json {
-
-  int parseValue(std::istream& is, json::Value& val)
+namespace anyjson {
+  
+  bool parse(std::istream& is, Value& val)
   {
-	int retcode = 0;
+	bool res = true;
 	std::ios_base::fmtflags flags = is.flags();
 	std::ios::iostate state = is.exceptions();
 
 	if ( ! (flags & std::ios_base::skipws) ) {
-	  std::cout << "DEBUG: set skipws flag" << std::endl;
 	  is.flags( flags | std::ios_base::skipws );
 	}
 	is.exceptions(std::istream::failbit | std::istream::badbit | std::istream::eofbit);
 
 	try {
-	  parse(is, val);
+	  recParse(is, val);
 
 	} catch (const std::istream::failure& err) {
 	  std::cerr << err.what()
@@ -315,153 +289,160 @@ namespace json {
 				<< ", fail=" << ((is.fail()) ? 1 : 0)
 				<< ", bad=" << ((is.bad()) ? 1 : 0)
 				<< std::endl;
-	  retcode = 1;
+	  res = false;
 	} catch (const std::exception& err) {
 	  std::cerr << err.what() << std::endl;
-	  retcode = 1;
+	  res = false;
 	}
 
 	is.exceptions(state);
 	is.flags(flags);
-	return retcode;
+	return res;
   }
 
-} // namespace json
+} // namespace anyjson
 
 /// STRINGIFY PART
 
-static void stringify(const json::Null&, std::ostream& os) {
-  os << "null";
-}
+namespace {
 
-static void stringify(const json::Boolean& b, std::ostream& os) {
-  os << ((b) ? "true" : "false");
-}
+  void stringify(const anyjson::Null&, std::ostream& os) {
+	os << "null";
+  }
 
-static void stringify(const json::Number& num, std::ostream& os) {
-  os << num;
-}
+  void stringify(const anyjson::Boolean& b, std::ostream& os) {
+	os << ((b) ? "true" : "false");
+  }
 
-static void stringify(const json::String& str, std::ostream& os) {
-  os << '"' << str << '"';
-}
+  void stringify(const anyjson::Number& num, std::ostream& os) {
+	os << num;
+  }
 
-static void stringify(const json::Value&, std::ostream&);
+  void stringify(const anyjson::String& str, std::ostream& os) {
+	os << '"' << str << '"';
+  }
 
-static void stringify(const json::Array& arr, std::ostream& os) {
-  os << '[';
+  void recStringify(const anyjson::Value&, std::ostream&);
 
-  json::Array::const_iterator cit = arr.cbegin();
+  void stringify(const anyjson::Array& arr, std::ostream& os) {
+	os << '[';
 
-  while (cit != arr.cend()) {
-	stringify(*cit, os);
+	anyjson::Array::const_iterator cit = arr.cbegin();
 
-	++cit;
+	while (cit != arr.cend()) {
+	  recStringify(*cit, os);
 
-	if (cit != arr.cend()) {
-	  os << ',';
+	  ++cit;
+
+	  if (cit != arr.cend()) {
+		os << ',';
+	  }
+	}
+
+	os << ']';
+  }
+
+  void stringify(const anyjson::Object& obj, std::ostream& os) {
+	os << '{';
+
+	anyjson::Object::const_iterator cit = obj.cbegin();
+
+	while (cit != obj.cend()) {
+	  os << '"' << cit->first << '"';
+	  os << ":";
+
+	  recStringify(cit->second, os);
+
+	  ++cit;
+
+	  if (cit != obj.cend()) {
+		os << ',';
+	  }
+	}
+
+	os << '}';
+  }
+
+  //
+  // Unfortunately, we cant use type-safe proposed by std::any_cast
+  // because it involves copy of JSON object. We hope comparing type
+  // is enough safe...
+  //
+
+  inline void _stringify_object(const anyjson::Value& obj, std::ostream& os) {
+	stringify(std::any_cast<anyjson::Object const&>(obj), os);
+  }
+
+  inline void _stringify_array(const anyjson::Value& arr, std::ostream& os) {
+	stringify(std::any_cast<anyjson::Array const&>(arr), os);
+  }
+
+  inline void _stringify_string(const anyjson::Value& str, std::ostream& os) {
+	stringify(std::any_cast<anyjson::String const&>(str), os);
+  }
+
+  inline void _stringify_number(const anyjson::Value& num, std::ostream& os) {
+	stringify(std::any_cast<anyjson::Number const&>(num), os);
+  }
+
+  inline void _stringify_boolean(const anyjson::Value& b, std::ostream& os) {
+	stringify(std::any_cast<anyjson::Boolean const&>(b), os);
+  }
+
+  inline void _stringify_null(const anyjson::Value& n, std::ostream& os) {
+	stringify(std::any_cast<anyjson::Null const&>(n), os);
+  }
+
+  void recStringify(const anyjson::Value& val, std::ostream& os) {
+	using MapKeyType = std::type_index;
+	using MapValueType = std::function<void(anyjson::Value const&, std::ostream&)>;
+
+	const std::unordered_map<MapKeyType, MapValueType>
+	  map {
+		   { std::type_index(typeid(anyjson::Object)), &_stringify_object },
+		   { std::type_index(typeid(anyjson::Array)), &_stringify_array },
+		   { std::type_index(typeid(anyjson::String)), &_stringify_string },
+		   { std::type_index(typeid(anyjson::Number)), &_stringify_number },
+		   { std::type_index(typeid(anyjson::Boolean)), &_stringify_boolean },
+		   { std::type_index(typeid(anyjson::Null)), &_stringify_null }
+	};
+
+	std::unordered_map<MapKeyType, MapValueType>::const_iterator cit =
+	  map.find( std::type_index(val.type()) );
+
+	if (cit != map.cend()) {
+	  ((*cit).second)(val, os);
+
+	} else {
+	  std::ostringstream oss;
+	  oss << "unknown type index [" << val.type().name() << "]";
+	  throw std::runtime_error(oss.str());
 	}
   }
 
-  os << ']';
-}
+} // anonymous namespace
 
-static void stringify(const json::Object& obj, std::ostream& os) {
-  os << '{';
-
-  json::Object::const_iterator cit = obj.cbegin();
-
-  while (cit != obj.cend()) {
-	os << '"' << cit->first << '"';
-	os << ":";
-
-	stringify(cit->second, os);
-
-	++cit;
-
-	if (cit != obj.cend()) {
-	  os << ',';
-	}
-  }
-
-  os << '}';
-}
-
-//
-// Unfortunately, we cant use type-safe proposed by std::any_cast
-// because it involves copy of JSON object. We hope comparing type
-// is enough safe...
-//
-
-static inline void _stringify_object(const json::Value& obj, std::ostream& os) {
-  stringify(std::any_cast<json::Object const&>(obj), os);
-}
-
-static inline void _stringify_array(const json::Value& arr, std::ostream& os) {
-  stringify(std::any_cast<json::Array const&>(arr), os);
-}
-
-static inline void _stringify_string(const json::Value& str, std::ostream& os) {
-  stringify(std::any_cast<json::String const&>(str), os);
-}
-
-static inline void _stringify_number(const json::Value& num, std::ostream& os) {
-  stringify(std::any_cast<json::Number const&>(num), os);
-}
-
-static inline void _stringify_boolean(const json::Value& b, std::ostream& os) {
-  stringify(std::any_cast<json::Boolean const&>(b), os);
-}
-
-static inline void _stringify_null(const json::Value& n, std::ostream& os) {
-  stringify(std::any_cast<json::Null const&>(n), os);
-}
-
-static void stringify(const json::Value& val, std::ostream& os) {
-  using MapKeyType = std::type_index;
-  using MapValueType = std::function<void(json::Value const&, std::ostream&)>;
-
-  const std::unordered_map<MapKeyType, MapValueType>
-	map {
-		 { std::type_index(typeid(json::Object)), &_stringify_object },
-		 { std::type_index(typeid(json::Array)), &_stringify_array },
-		 { std::type_index(typeid(json::String)), &_stringify_string },
-		 { std::type_index(typeid(json::Number)), &_stringify_number },
-		 { std::type_index(typeid(json::Boolean)), &_stringify_boolean },
-		 { std::type_index(typeid(json::Null)), &_stringify_null }
-  };
-
-  std::unordered_map<MapKeyType, MapValueType>::const_iterator cit =
-	map.find( std::type_index(val.type()) );
-
-  if (cit != map.cend()) {
-	((*cit).second)(val, os);
-
-  } else {
-	std::ostringstream oss;
-	oss << "unknown type index [" << val.type().name() << "]";
-	throw std::runtime_error(oss.str());
-  }
-}
-
-namespace json {
-int stringifyValue(const json::Value& val, std::ostream& os)
+  
+namespace anyjson {
+  
+bool stringify(const anyjson::Value& val, std::ostream& os)
 {
-  int retcode = 0;
+  bool res = true;
   std::ios::iostate oldState = os.exceptions();
 
   os.exceptions(std::ostream::failbit | std::ostream::badbit | std::ostream::eofbit);
 
   try {
-	stringify(val, os);
+	recStringify(val, os);
 
   } catch (const std::exception& err) {
 	std::cerr << err.what() << std::endl;
-	retcode = 1;
+	res = false;
   }
 
   os.exceptions(oldState);
-  return retcode;
+  return res;
 }
-}
+  
+} // namespace anyjson
 

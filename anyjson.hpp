@@ -1,5 +1,5 @@
-#ifndef JSON_H
-#define JSON_H
+#ifndef ANYJSON_H
+#define ANYJSON_H
 
 #include <any> // c++17
 #include <map>
@@ -7,7 +7,7 @@
 #include <vector>
 #include <iostream>
 
-namespace json {
+namespace anyjson {
   
   using Value	= std::any;
   using Object	= std::map<std::string, Value>;
@@ -16,9 +16,18 @@ namespace json {
   using Number	= double;
   using Boolean	= bool;
   using Null	= std::nullptr_t;
-  
-  int parseValue(std::istream& is, json::Value& val);
-  int stringifyValue(const json::Value& val, std::ostream& os);
+
+  /**
+   *
+   *
+   */
+  bool parse(std::istream& is, Value& val);
+
+  /**
+   *
+   *
+   */
+  bool stringify(const Value& val, std::ostream& os);
 }
 
 #endif
