@@ -1,4 +1,6 @@
 
+#include <string.h>	// strcmp
+
 #include <fstream>
 #include <iostream>
 #include <cassert>
@@ -7,8 +9,6 @@
 
 #include "anyjson.hpp"
 #include "anyjson_tools.hpp"
-
-//#define WITH_CHRONO
 
 #if defined(WITH_CHRONO)
 class Chrono {
@@ -118,8 +118,6 @@ int test_simple_json() {
   }
   return retcode;
 }
-
-#include <string.h>
 
 int main(int argc, char* argv[])
 {

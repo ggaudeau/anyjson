@@ -12,7 +12,7 @@
 #include <iostream>
 
 namespace anyjson {
-  
+
   using Value	= std::any;
   using Object	= std::map<std::string, Value>;
   using Array	= std::vector<Value>;

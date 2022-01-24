@@ -12,20 +12,20 @@
 #include "anyjson.hpp"
 
 namespace {
-  
+
 template <typename T> bool isTypeOf(anyjson::Value& value) {
   if (value.has_value()) {
 	return (typeid(T) == value.type());
-  }  
+  }
   throw std::runtime_error("any has NO value");
 }
 
 template <typename T> T& castTypeOf(anyjson::Value& value) {
   if (isTypeOf<T>(value)) {
 	return std::any_cast<T&>(value);
-  }  
+  }
   std::ostringstream oss;
-  
+
   oss << "bad any cast: " << typeid(T).name();
   throw std::runtime_error(oss.str());
 }

@@ -20,7 +20,7 @@
 /// PARSING PART
 
 namespace {
-  
+
   void consumeChar(std::istream& is, char expected) {
 	char ch;
 
@@ -42,7 +42,7 @@ namespace {
 
   anyjson::String parseString(std::istream& is) {
 	anyjson::String str;
-	
+
 	print("parsing string ... ");
 	is >> std::quoted(str);
 	println(str);
@@ -64,7 +64,7 @@ namespace {
 	  bContinue = false;
 	  if (ch == '"') {
 		anyjson::String&& key = parseString(is);
-		
+
 		if (obj.find(key) != obj.cend()) {
 		  std::ostringstream oss;
 		  oss << "duplicate object key [" << key << "]";
@@ -73,12 +73,9 @@ namespace {
 
 		consumeWhitespaces(is);
 		consumeChar(is, ':');
-
-		{
-		  consumeWhitespaces(is);
-		  obj.emplace(key, parseValue(is));
-		  consumeWhitespaces(is);
-		}
+		consumeWhitespaces(is);
+		obj.emplace(key, parseValue(is));
+		consumeWhitespaces(is);
 
 		ch = static_cast<char>(is.peek());
 
@@ -120,7 +117,7 @@ namespace {
 
 	anyjson::Array arr;
 	bool bContinue;
-	char ch;	
+	char ch;
 
 	consumeChar(is, '[');
 
@@ -129,11 +126,9 @@ namespace {
 	  do {
 		bContinue = false;
 
-		{
-		  consumeWhitespaces(is);		  
-		  arr.emplace_back( parseValue(is) );
-		  consumeWhitespaces(is);
-		}
+		consumeWhitespaces(is);
+		arr.emplace_back( parseValue(is) );
+		consumeWhitespaces(is);
 
 		ch = is.peek();
 
@@ -172,17 +167,17 @@ namespace {
 
   anyjson::Boolean parseBoolean(std::istream& is) {
 	std::string str;
-	
+
 	print("parsing bool ... ");
 	std::getline(is, str, 'e');
 	if (str == "tru") {
 	  println("true");
 	  return true;
-		
+
 	} else if (str == "fals") {
 	  println("false");
 	  return false;
-	  
+
 	} else {
 	  println("ko");
 	  std::ostringstream oss;
@@ -190,7 +185,7 @@ namespace {
 	  throw std::runtime_error(oss.str());
 	}
   }
-  
+
   anyjson::Null parseNull(std::istream& is) {
 	const size_t size = 4 + 1;
 	char buffer[size];
@@ -201,7 +196,7 @@ namespace {
 	if (strcmp(buffer, "null") == 0) {
 	  println("ok");
 	  return nullptr;
-		
+
 	} else {
 	  println("ko");
 	  std::ostringstream oss;
@@ -209,7 +204,7 @@ namespace {
 	  throw std::runtime_error(oss.str());
 	}
   }
-  
+
   anyjson::Value parseValue(std::istream& is) {
 	int ch = is.peek();
 
@@ -250,7 +245,7 @@ namespace {
 
 
 namespace anyjson {
-  
+
   Value parse(std::istream& is)
   {
 	std::ios_base::fmtflags flags = is.flags();
@@ -263,11 +258,11 @@ namespace anyjson {
 
 	try {
 	  Value&& val = parseValue(is);
-	  
+
 	  is.exceptions(state);
 	  is.flags(flags);
 	  return std::move(val);
-	  
+
 	} catch (const std::istream::failure& err) {
 	  std::cerr << err.what()
 				<< ", eof=" << ((is.eof()) ? 1 : 0)
@@ -280,7 +275,7 @@ namespace anyjson {
 
 	is.exceptions(state);
 	is.flags(flags);
-	
+
 	return {};
   }
 
@@ -406,9 +401,9 @@ namespace {
 
 } // anonymous namespace
 
-  
+
 namespace anyjson {
-  
+
 bool stringify(const anyjson::Value& val, std::ostream& os)
 {
   bool res = true;
@@ -427,6 +422,6 @@ bool stringify(const anyjson::Value& val, std::ostream& os)
   os.exceptions(oldState);
   return res;
 }
-  
+
 } // namespace anyjson
 
