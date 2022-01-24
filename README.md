@@ -38,9 +38,9 @@ So that only recent compilers like g++-7 or greater can build this source code.
 int main()
 {
   std::stringstream iss("{ \"item\": { \"value\": 0 } }");
-  std::any data;
-
-  if (anyjson::parse(iss, data)) {
+  std::any&& data = anyjson::parse(iss);
+  
+  if (data.has_value()) {
     try {
       anyjson::Object& root = to<anyjson::Object&>(data);
       anyjson::Object::iterator rootIt = root.find("item");
