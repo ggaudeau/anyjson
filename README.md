@@ -23,13 +23,17 @@ As its repository name indicates, main object used to store JSON data is std::an
 So that only recent compilers like g++-7 or greater can build this source code.
 
 * no dependency except the STL
-* template method to<T> that converts std::any to other types
+* template method to() that converts std::any to other types
 * print traces in debug mode
 * usable in multithreaded program
 
 # Usage
 
 ~~~~~~~~~~cpp
+
+#include <sstream>
+#include "anyjson.hpp"
+#include "anyjson_tools.hpp" // to()
 
 int main()
 {
@@ -57,9 +61,9 @@ int main()
 	}
 
 	if (anyjson::stringify(data, std::cout)) {
+	  std::cout << std::endl;
 	  return 0;
-	}
-	std::cout << std::endl;
+	}	
   }
   return 1;
 }
