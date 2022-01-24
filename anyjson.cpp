@@ -170,6 +170,46 @@ namespace {
 	return num;
   }
 
+  anyjson::Boolean parseBoolean(std::istream& is) {
+	std::string str;
+	
+	print("parsing bool ... ");
+	std::getline(is, str, 'e');
+	if (str == "tru") {
+	  println("true");
+	  return true;
+		
+	} else if (str == "fals") {
+	  println("false");
+	  return false;
+	  
+	} else {
+	  println("ko");
+	  std::ostringstream oss;
+	  oss << "expect true or false have [" << str << "]";
+	  throw std::runtime_error(oss.str());
+	}
+  }
+  
+  anyjson::Null parseNull(std::istream& is) {
+	const size_t size = 4 + 1;
+	char buffer[size];
+
+	memset(buffer, 0, size);
+	print("parsing null ... ");
+	is.read(buffer, size - 1);
+	if (strcmp(buffer, "null") == 0) {
+	  println("ok");
+	  return nullptr;
+		
+	} else {
+	  println("ko");
+	  std::ostringstream oss;
+	  oss << "expect null have [" << buffer << "]";
+	  throw std::runtime_error(oss.str());
+	}
+  }
+  
   anyjson::Value parseValue(std::istream& is) {
 	int ch = is.peek();
 
@@ -184,66 +224,15 @@ namespace {
 	  return std::make_any<anyjson::Array>( parseArray(is) );
 	}
 	case 't': {
-
-	  // TRUE
-
-	  std::string str;
-	  print("parsing true ... ");
-	  std::getline(is, str, 'e');
-	  if (str == "tru") {
-		println("ok");
-		return std::make_any<anyjson::Boolean>( true );
-		
-	  } else {
-		println("ko");
-		std::ostringstream oss;
-		oss << "expect true have [" << str << "]";
-		throw std::runtime_error(oss.str());
-	  }
+	  return std::make_any<anyjson::Boolean>( parseBoolean(is) );
 	}
 	case 'f': {
-
-	  // FALSE
-
-	  std::string str;
-	  print("parsing true ... ");
-	  std::getline(is, str, 'e');
-	  if (str == "fals") {
-		println("ok");
-		return std::make_any<anyjson::Boolean>( false );
-		
-	  } else {
-		println("ko");
-		std::ostringstream oss;
-		oss << "expect false have [" << str << "]";
-		throw std::runtime_error(oss.str());
-	  }
+	  return std::make_any<anyjson::Boolean>( parseBoolean(is) );
 	}
 	case 'n': {
-
-	  // NULL
-
-	  const size_t size = 4 + 1;
-	  char buffer[size];
-
-	  memset(buffer, 0, size);
-	  print("parsing null ... ");
-	  is.read(buffer, size - 1);
-	  if (strcmp(buffer, "null") == 0) {
-		println("ok");
-		return std::make_any<anyjson::Null>();
-		
-	  } else {
-		println("ko");
-		std::ostringstream oss;
-		oss << "expect null have [" << buffer << "]";
-		throw std::runtime_error(oss.str());
-	  }
+	  return std::make_any<anyjson::Null>( parseNull(is) );
 	}
 	default: {
-
-	  // NUMBER
-
 	  if (isdigit(ch) || static_cast<char>(ch) == '-') {
 		return std::make_any<anyjson::Number>( parseNumber(is) );
 
